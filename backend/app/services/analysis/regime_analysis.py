@@ -1,9 +1,19 @@
 from models.candle import Candle
+from services.analysis.volatility_analysis import calculate_volatility
+
+
+HIGH_VOLATILITY_THRESHOLD = 10
 
 
 def classify_regime(candles: list[Candle]) -> str:
     if len(candles) < 2:
         return "INSUFFICIENT_DATA"
+
+    volatility_analysis = calculate_volatility(candles)
+    volatility = volatility_analysis["volatility"]
+
+    if volatility > HIGH_VOLATILITY_THRESHOLD:
+        return "HIGH_VOLATILITY"
 
     rising_moves = 0
     falling_moves = 0
