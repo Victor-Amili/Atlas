@@ -5,4 +5,4 @@ class MarketAnalysis(BaseModel):
     returns: dict
     volatility: dict
     trend: dict
-    regime: str
+    regime: dict
