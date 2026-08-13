@@ -1,17 +1,26 @@
 from models.candle import Candle
 
 
-def determine_market_regime(candles: list[Candle]) -> str:
+def classify_regime(candles: list[Candle]) -> str:
     if len(candles) < 2:
-        return "NEUTRAL"
+        return "INSUFFICIENT_DATA"
 
-    first_close = candles[0].close
-    last_close = candles[-1].close
+    rising_moves = 0
+    falling_moves = 0
 
-    if last_close > first_close:
-        return "BULLISH"
+    for i in range(1, len(candles)):
+        previous_close = candles[i - 1].close
+        current_close = candles[i].close
 
-    if last_close < first_close:
-        return "BEARISH"
+        if current_close > previous_close:
+            rising_moves += 1
+        elif current_close < previous_close:
+            falling_moves += 1
 
-    return "NEUTRAL"
+    if rising_moves > falling_moves:
+        return "BULL_TREND"
+
+    if falling_moves > rising_moves:
+        return "BEAR_TREND"
+
+    return "RANGE"
