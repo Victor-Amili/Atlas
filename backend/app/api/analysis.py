@@ -8,6 +8,7 @@ from services.analysis.return_analysis import analyze_returns
 from services.market_data_service import get_sample_market_data
 from services.analysis.volatility_analysis import calculate_volatility
 from services.analysis.market_analysis import analyze_market
+from services.analysis.market_summary import summarize_market
 
 
 router = APIRouter(
@@ -28,6 +29,10 @@ def get_volatility_analysis(request: AnalysisRequest):
 @router.post("/market-analysis")
 def get_market_analysis(request: AnalysisRequest) -> MarketAnalysis:
     return analyze_market(request.candles)
+
+@router.post("/market-summary")
+def get_market_summary(request: AnalysisRequest):
+    return summarize_market(request.candles)
 
 @router.get("/market-returns")
 def get_market_returns():
