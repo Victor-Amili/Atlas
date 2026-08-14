@@ -6,3 +6,4 @@ class MarketAnalysis(BaseModel):
     volatility: dict
     trend: dict
     regime: dict
+    strategy: str
