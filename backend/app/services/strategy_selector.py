@@ -1,19 +1,23 @@
+def select_strategy(regime_analysis: dict) -> str:
 
+    regime = regime_analysis["regime"]
+    confidence = regime_analysis["confidence"]
 
-def select_strategy(regime: dict) -> str:
-    regime_name = regime["regime"]  # Ensure the regime is classified before selecting a strategy
+    MIN_CONFIDENCE = 0.6
 
-    if regime_name == "BULL_TREND":
-        
+    if confidence < MIN_CONFIDENCE:
+        return "NO_STRATEGY"
+
+    if regime == "BULL_TREND":
         return "TREND_FOLLOWING"
 
-    if regime_name  == "BEAR_TREND":
+    if regime == "BEAR_TREND":
         return "TREND_FOLLOWING"
 
-    if regime_name == "HIGH_VOLATILITY":
+    if regime == "HIGH_VOLATILITY":
         return "BREAKOUT"
 
-    if regime_name == "RANGE":
+    if regime == "RANGE":
         return "MEAN_REVERSION"
 
     return "NO_STRATEGY"
