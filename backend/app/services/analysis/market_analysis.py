@@ -30,7 +30,8 @@ def analyze_market(candles: list[Candle]) -> MarketAnalysis:
     
     trade_signal = generate_trade_signal(
     strategy_decision,
-    regime
+    regime,
+    candles
 )
 
     return MarketAnalysis(
