@@ -9,6 +9,7 @@ from services.strategy.strategy_decision import make_strategy_decision
 from services.analysis.statistical_features import calculate_return_statistics
 
 from services.strategy.strategy_scoring import score_strategies
+from services.strategy.trade_signal import generate_trade_signal
 
 def analyze_market(candles: list[Candle]) -> MarketAnalysis:
     return_analysis = analyze_returns(candles)
@@ -26,6 +27,11 @@ def analyze_market(candles: list[Candle]) -> MarketAnalysis:
    
     strategy_decision = make_strategy_decision(strategy_scores, regime, 
                                                statistics, volatility_analysis, len(candles))
+    
+    trade_signal = generate_trade_signal(
+    strategy_decision,
+    regime
+)
 
     return MarketAnalysis(
         returns=return_analysis,
@@ -35,5 +41,6 @@ def analyze_market(candles: list[Candle]) -> MarketAnalysis:
         strategy_scores=strategy_scores,
         statistics=statistics,
         strategy = strategy_decision["strategy"],    
-        strategy_decision=strategy_decision
+        strategy_decision=strategy_decision,
+        trade_signal=trade_signal
     )
