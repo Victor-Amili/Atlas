@@ -8,3 +8,4 @@ class MarketAnalysis(BaseModel):
     regime: dict
     strategy_scores: dict
     strategy: str
+    strategy_decision: dict

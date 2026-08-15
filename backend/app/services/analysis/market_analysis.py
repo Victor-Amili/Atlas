@@ -5,12 +5,10 @@ from services.analysis.return_analysis import analyze_returns
 from services.analysis.volatility_analysis import calculate_volatility
 from services.analysis.trend_analysis import analyze_trend
 from services.analysis.regime_analysis import classify_regime
+from services.strategy.strategy_decision import make_strategy_decision
+from services.analysis.statistical_features import calculate_return_statistics
 
-from services.strategy.strategy_scoring import (
-    score_strategies,
-    select_best_strategy
-)
-
+from services.strategy.strategy_scoring import score_strategies
 
 def analyze_market(candles: list[Candle]) -> MarketAnalysis:
     return_analysis = analyze_returns(candles)
@@ -20,10 +18,13 @@ def analyze_market(candles: list[Candle]) -> MarketAnalysis:
     regime = classify_regime(candles)
 
     volatility_analysis = calculate_volatility(candles)
+    
+    statistics = calculate_return_statistics(candles)
 
     strategy_scores = score_strategies(regime)
 
-    strategy = select_best_strategy(strategy_scores)
+   
+    strategy_decision = make_strategy_decision(strategy_scores, regime, statistics)
 
     return MarketAnalysis(
         returns=return_analysis,
@@ -31,5 +32,6 @@ def analyze_market(candles: list[Candle]) -> MarketAnalysis:
         trend=trend_analysis,
         regime=regime,
         strategy_scores=strategy_scores,
-        strategy=strategy
+        strategy = strategy_decision["strategy"],    
+        strategy_decision=strategy_decision
     )
