@@ -9,3 +9,4 @@ class MarketAnalysis(BaseModel):
     strategy_scores: dict
     strategy: str
     strategy_decision: dict
+    statistics: dict

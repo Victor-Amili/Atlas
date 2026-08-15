@@ -20,9 +20,18 @@ def calculate_return_statistics(candles: list[Candle]) -> dict:
         price_return = (current_close - previous_close) / previous_close
 
         returns.append(price_return)
+        
+    positive_returns = 0
+
+    for price_return in returns:
+        if price_return > 0:
+            positive_returns += 1
+
+    positive_return_ratio = positive_returns / len(returns)
 
     return {
         "average_return": sum(returns) / len(returns),
         "maximum_return": max(returns),
-        "minimum_return": min(returns)
+        "minimum_return": min(returns),
+        "positive_return_ratio": positive_return_ratio
     }

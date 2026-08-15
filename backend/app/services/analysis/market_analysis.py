@@ -21,10 +21,11 @@ def analyze_market(candles: list[Candle]) -> MarketAnalysis:
     
     statistics = calculate_return_statistics(candles)
 
-    strategy_scores = score_strategies(regime)
+    strategy_scores = score_strategies(regime, volatility_analysis)
 
    
-    strategy_decision = make_strategy_decision(strategy_scores, regime, statistics)
+    strategy_decision = make_strategy_decision(strategy_scores, regime, 
+                                               statistics, volatility_analysis, len(candles))
 
     return MarketAnalysis(
         returns=return_analysis,
@@ -32,6 +33,7 @@ def analyze_market(candles: list[Candle]) -> MarketAnalysis:
         trend=trend_analysis,
         regime=regime,
         strategy_scores=strategy_scores,
+        statistics=statistics,
         strategy = strategy_decision["strategy"],    
         strategy_decision=strategy_decision
     )
