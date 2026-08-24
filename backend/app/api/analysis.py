@@ -2,6 +2,7 @@ from fastapi import APIRouter
 
 from models.analysis_request import AnalysisRequest
 from models.market_analysis import MarketAnalysis  
+from models.account import AccountConfig
 
 
 from services.analysis.return_analysis import analyze_returns
@@ -28,11 +29,25 @@ def get_volatility_analysis(request: AnalysisRequest):
 
 @router.post("/market-analysis")
 def get_market_analysis(request: AnalysisRequest) -> MarketAnalysis:
-    return analyze_market(request.candles)
+    account = AccountConfig(
+        balance=100000,
+        risk_percent=0.01
+    )
+
+    return analyze_market(request.candles, account)
 
 @router.post("/market-summary")
 def get_market_summary(request: AnalysisRequest):
-    return summarize_market(request.candles)
+
+    account = AccountConfig(
+        balance=100000,
+        risk_percent=0.01
+    )
+
+    return summarize_market(
+        request.candles,
+        account
+    )
 
 @router.get("/market-returns")
 def get_market_returns():

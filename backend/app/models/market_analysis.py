@@ -12,3 +12,4 @@ class MarketAnalysis(BaseModel):
     statistics: dict
     trade_signal: dict
     risk: dict
+    trade_decision: dict

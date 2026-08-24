@@ -1,21 +1,24 @@
 from models.candle import Candle
+from models.account import AccountConfig
 
-from services.analysis.trend_analysis import analyze_trend
-from services.analysis.regime_analysis import classify_regime
-from services.analysis.volatility_analysis import calculate_volatility
-from services.analysis.statistical_features import calculate_return_statistics
+from services.analysis.market_analysis import analyze_market
 
 
-def summarize_market(candles: list[Candle]) -> dict:
+def summarize_market(
+    candles: list[Candle],
+    account: AccountConfig
+) -> dict:
 
-    trend = analyze_trend(candles)
-    regime = classify_regime(candles)
-    volatility = calculate_volatility(candles)
-    statistics = calculate_return_statistics(candles)
+    analysis = analyze_market(candles, account)
 
     return {
-        "trend": trend,
-        "regime": regime,
-        "volatility": volatility,
-        "statistics": statistics
+        "trend": analysis.trend,
+        "regime": analysis.regime,
+        "volatility": analysis.volatility,
+        "statistics": analysis.statistics,
+        "strategy": analysis.strategy,
+        "strategy_decision": analysis.strategy_decision,
+        "trade_signal": analysis.trade_signal,
+        "risk": analysis.risk,
+        "trade_decision": analysis.trade_decision
     }

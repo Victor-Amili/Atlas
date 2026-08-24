@@ -26,3 +26,6 @@ def get_sample_market_data() -> MarketData:
         timeframe="1h",
         candles=candles
     )
+
+def get_market_data() -> MarketData:
+    return get_sample_market_data()
