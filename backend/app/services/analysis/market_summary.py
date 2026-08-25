@@ -20,5 +20,6 @@ def summarize_market(
         "strategy_decision": analysis.strategy_decision,
         "trade_signal": analysis.trade_signal,
         "risk": analysis.risk,
+        "position_size": analysis.position_size,
         "trade_decision": analysis.trade_decision
     }

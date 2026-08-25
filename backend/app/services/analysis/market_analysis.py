@@ -76,5 +76,6 @@ def analyze_market(candles: list[Candle],account: AccountConfig) -> MarketAnalys
         strategy_decision=strategy_decision,
         trade_signal=trade_signal,
         risk=risk,
+        position_size=position_size,
         trade_decision=trade_decision
     )
