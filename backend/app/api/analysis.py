@@ -6,7 +6,7 @@ from models.account import AccountConfig
 
 
 from services.analysis.return_analysis import analyze_returns
-from services.market_data_service import get_sample_market_data
+from services.market_data_service import get_market_data, get_sample_market_data
 from services.analysis.volatility_analysis import calculate_volatility
 from services.analysis.market_analysis import analyze_market
 from services.analysis.market_summary import summarize_market
@@ -36,24 +36,42 @@ def get_market_analysis(request: AnalysisRequest) -> MarketAnalysis:
 
     return analyze_market(request.candles, account)
 
-@router.post("/market-summary")
-def get_market_summary(request: AnalysisRequest):
-
+@router.get("/market-summary")
+def get_market_summary(
+    symbol: str = "BTCUSDT",
+    timeframe: str = "1h",
+    limit: int = 100
+):
     account = AccountConfig(
         balance=100000,
         risk_percent=0.01
     )
 
+    market_data = get_market_data(
+        symbol=symbol,
+        timeframe=timeframe,
+        limit=limit
+    )
+
     return summarize_market(
-        request.candles,
+        market_data.candles,
         account
     )
 
 @router.get("/market-returns")
-def get_market_returns():
-    market_data = get_sample_market_data()
+def get_market_returns(
+    symbol: str = "BTCUSD",
+    timeframe: str = "1h",
+    limit: int = 100
+):
+    market_data = get_market_data(
+        symbol,
+        timeframe,
+        limit
+    )
 
-    return analyze_returns(market_data.candles)
-
+    return analyze_returns(
+        market_data.candles
+    )
 
    

@@ -2,6 +2,8 @@ from datetime import datetime, timedelta
 
 from models.candle import Candle
 from models.market_data import MarketData
+from services.providers.market_data_provider import get_market_data as fetch_market_data
+
 
 
 def get_sample_market_data() -> MarketData:
@@ -26,6 +28,14 @@ def get_sample_market_data() -> MarketData:
         timeframe="1h",
         candles=candles
     )
-
-def get_market_data() -> MarketData:
-    return get_sample_market_data()
+    
+def get_market_data(
+    symbol: str,
+    timeframe: str,
+    limit: int = 100
+) -> MarketData:
+    return fetch_market_data(
+        symbol=symbol,
+        timeframe=timeframe,
+        limit=limit
+    )
