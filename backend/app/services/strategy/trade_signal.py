@@ -113,6 +113,9 @@ from models.candle import Candle
 MIN_SIGNAL_CONFIDENCE = 0.50
 BREAKOUT_LOOKBACK = 20
 
+MIN_BREAKOUT_PERCENT = 0.20
+MIN_BODY_PERCENT = 0.50
+
 
 def generate_trade_signal(
     strategy_decision: dict,
@@ -152,27 +155,24 @@ def generate_trade_signal(
         }
 
     # ---------------------------------------------------------
-    # CONFIDENCE FILTER
-    # ---------------------------------------------------------
-
-    if confidence < MIN_SIGNAL_CONFIDENCE:
-        return {
-            "action": "HOLD",
-            "direction": "NONE",
-            "confidence": confidence,
-            "latest_return": latest_return,
-            "entry_confirmed": False,
-            "reason": (
-                f"Signal confidence {confidence:.2f} is below "
-                f"minimum required confidence {MIN_SIGNAL_CONFIDENCE:.2f}"
-            )
-        }
-
-    # ---------------------------------------------------------
     # TREND FOLLOWING
     # ---------------------------------------------------------
 
     if strategy == "TREND_FOLLOWING":
+
+        if confidence < MIN_SIGNAL_CONFIDENCE:
+            return {
+                "action": "HOLD",
+                "direction": "NONE",
+                "confidence": confidence,
+                "latest_return": latest_return,
+                "entry_confirmed": False,
+                "reason": (
+                    f"Trend signal confidence {confidence:.2f} "
+                    f"is below minimum required confidence "
+                    f"{MIN_SIGNAL_CONFIDENCE:.2f}"
+                )
+            }
 
         if regime == "BULL_TREND":
 
@@ -239,7 +239,6 @@ def generate_trade_signal(
                 "action": "HOLD",
                 "direction": "PENDING",
                 "confidence": confidence,
-                "latest_return": latest_return,
                 "entry_confirmed": False,
                 "reason": (
                     f"Breakout requires at least "
@@ -247,9 +246,9 @@ def generate_trade_signal(
                 )
             }
 
-        # Exclude the current candle when calculating
-        # previous resistance/support.
-        lookback_candles = candles[-(BREAKOUT_LOOKBACK + 1):-1]
+        lookback_candles = candles[
+            -(BREAKOUT_LOOKBACK + 1):-1
+        ]
 
         resistance = max(
             candle.high for candle in lookback_candles
@@ -259,39 +258,237 @@ def generate_trade_signal(
             candle.low for candle in lookback_candles
         )
 
-        # Bullish breakout
-        if latest_close > resistance:
+        # -----------------------------------------------------
+        # CURRENT CANDLE
+        # -----------------------------------------------------
+
+        candle_open = latest_candle.open
+        candle_high = latest_candle.high
+        candle_low = latest_candle.low
+        candle_close = latest_candle.close
+
+        candle_range = candle_high - candle_low
+
+        if candle_range <= 0:
+            return {
+                "action": "HOLD",
+                "direction": "PENDING",
+                "confidence": confidence,
+                "entry_confirmed": False,
+                "resistance": resistance,
+                "support": support,
+                "reason": "Invalid latest candle range"
+            }
+
+        candle_body = abs(candle_close - candle_open)
+
+        body_ratio = candle_body / candle_range
+
+        # -----------------------------------------------------
+        # VOLUME ANALYSIS
+        # -----------------------------------------------------
+
+        average_volume = (
+            sum(candle.volume for candle in lookback_candles)
+            / len(lookback_candles)
+        )
+
+        latest_volume = latest_candle.volume
+
+        if average_volume > 0:
+            volume_ratio = latest_volume / average_volume
+        else:
+            volume_ratio = 0.0
+
+        # Volume score capped between 0 and 1.
+        volume_score = min(volume_ratio / 2.0, 1.0)
+
+        # -----------------------------------------------------
+        # MOMENTUM
+        # -----------------------------------------------------
+
+        average_body = (
+            sum(
+                abs(candle.close - candle.open)
+                for candle in lookback_candles
+            )
+            / len(lookback_candles)
+        )
+
+        if average_body > 0:
+            momentum_ratio = candle_body / average_body
+        else:
+            momentum_ratio = 0.0
+
+        momentum_score = min(momentum_ratio / 2.0, 1.0)
+
+        # -----------------------------------------------------
+        # BREAKOUT DISTANCE
+        # -----------------------------------------------------
+
+        bullish_breakout_percent = (
+            (candle_close - resistance) / resistance
+        ) * 100
+
+        bearish_breakout_percent = (
+            (support - candle_close) / support
+        ) * 100
+
+        # -----------------------------------------------------
+        # BULLISH BREAKOUT
+        # -----------------------------------------------------
+
+        if candle_close > resistance:
+
+            body_score = min(
+                body_ratio / MIN_BODY_PERCENT,
+                1.0
+            )
+
+            distance_score = min(
+                bullish_breakout_percent
+                / MIN_BREAKOUT_PERCENT,
+                1.0
+            )
+
+            breakout_confidence = (
+                distance_score * 0.25
+                + body_score * 0.25
+                + volume_score * 0.25
+                + momentum_score * 0.25
+            )
+
+            body_confirmed = (
+                body_ratio >= MIN_BODY_PERCENT
+            )
+
+            distance_confirmed = (
+                bullish_breakout_percent
+                >= MIN_BREAKOUT_PERCENT
+            )
+
+            if body_confirmed and distance_confirmed:
+
+                return {
+                    "action": "BUY",
+                    "direction": "LONG",
+                    "confidence": confidence,
+                    "breakout_confidence": breakout_confidence,
+                    "latest_return": latest_return,
+                    "entry_confirmed": True,
+                    "breakout_level": resistance,
+                    "breakout_percent": bullish_breakout_percent,
+                    "body_ratio": body_ratio,
+                    "volume_ratio": volume_ratio,
+                    "momentum_ratio": momentum_ratio,
+                    "reason": (
+                        f"Bullish breakout confirmed: "
+                        f"close {candle_close:.2f} broke above "
+                        f"resistance {resistance:.2f} by "
+                        f"{bullish_breakout_percent:.2f}%. "
+                        f"Breakout confidence: "
+                        f"{breakout_confidence:.2f}"
+                    )
+                }
 
             return {
-                "action": "BUY",
-                "direction": "LONG",
+                "action": "HOLD",
+                "direction": "PENDING",
                 "confidence": confidence,
+                "breakout_confidence": breakout_confidence,
                 "latest_return": latest_return,
-                "entry_confirmed": True,
-                "breakout_level": resistance,
+                "entry_confirmed": False,
+                "resistance": resistance,
+                "support": support,
+                "breakout_percent": bullish_breakout_percent,
+                "body_ratio": body_ratio,
+                "volume_ratio": volume_ratio,
+                "momentum_ratio": momentum_ratio,
                 "reason": (
-                    f"Bullish breakout confirmed: "
-                    f"close {latest_close:.2f} broke above "
-                    f"resistance {resistance:.2f}"
+                    "Price broke resistance but breakout "
+                    "confirmation conditions were not satisfied"
                 )
             }
 
-        # Bearish breakout
-        if latest_close < support:
+        # -----------------------------------------------------
+        # BEARISH BREAKOUT
+        # -----------------------------------------------------
+
+        if candle_close < support:
+
+            body_score = min(
+                body_ratio / MIN_BODY_PERCENT,
+                1.0
+            )
+
+            distance_score = min(
+                bearish_breakout_percent
+                / MIN_BREAKOUT_PERCENT,
+                1.0
+            )
+
+            breakout_confidence = (
+                distance_score * 0.25
+                + body_score * 0.25
+                + volume_score * 0.25
+                + momentum_score * 0.25
+            )
+
+            body_confirmed = (
+                body_ratio >= MIN_BODY_PERCENT
+            )
+
+            distance_confirmed = (
+                bearish_breakout_percent
+                >= MIN_BREAKOUT_PERCENT
+            )
+
+            if body_confirmed and distance_confirmed:
+
+                return {
+                    "action": "SELL",
+                    "direction": "SHORT",
+                    "confidence": confidence,
+                    "breakout_confidence": breakout_confidence,
+                    "latest_return": latest_return,
+                    "entry_confirmed": True,
+                    "breakout_level": support,
+                    "breakout_percent": bearish_breakout_percent,
+                    "body_ratio": body_ratio,
+                    "volume_ratio": volume_ratio,
+                    "momentum_ratio": momentum_ratio,
+                    "reason": (
+                        f"Bearish breakout confirmed: "
+                        f"close {candle_close:.2f} broke below "
+                        f"support {support:.2f} by "
+                        f"{bearish_breakout_percent:.2f}%. "
+                        f"Breakout confidence: "
+                        f"{breakout_confidence:.2f}"
+                    )
+                }
 
             return {
-                "action": "SELL",
-                "direction": "SHORT",
+                "action": "HOLD",
+                "direction": "PENDING",
                 "confidence": confidence,
+                "breakout_confidence": breakout_confidence,
                 "latest_return": latest_return,
-                "entry_confirmed": True,
-                "breakout_level": support,
+                "entry_confirmed": False,
+                "resistance": resistance,
+                "support": support,
+                "breakout_percent": bearish_breakout_percent,
+                "body_ratio": body_ratio,
+                "volume_ratio": volume_ratio,
+                "momentum_ratio": momentum_ratio,
                 "reason": (
-                    f"Bearish breakout confirmed: "
-                    f"close {latest_close:.2f} broke below "
-                    f"support {support:.2f}"
+                    "Price broke support but breakdown "
+                    "confirmation conditions were not satisfied"
                 )
             }
+
+        # -----------------------------------------------------
+        # NO BREAKOUT
+        # -----------------------------------------------------
 
         return {
             "action": "HOLD",
@@ -312,6 +509,7 @@ def generate_trade_signal(
     # ---------------------------------------------------------
 
     if strategy == "MEAN_REVERSION":
+
         return {
             "action": "HOLD",
             "direction": "PENDING",

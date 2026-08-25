@@ -1,14 +1,22 @@
 MIN_STRATEGY_SCORE = 0.5
 
+# Volatility percentage ranges
+LOW_VOLATILITY_PERCENT = 0.50
+HIGH_VOLATILITY_PERCENT = 1.00
+
 
 def score_strategies(
     regime_analysis: dict,
     volatility_analysis: dict
 ) -> dict:
 
-    regime = regime_analysis["regime"]
-    confidence = regime_analysis["confidence"]
-    volatility = volatility_analysis.get("volatility", 0.0)
+    regime = regime_analysis.get("regime", "UNKNOWN")
+    confidence = regime_analysis.get("confidence", 0.0)
+
+    volatility_percent = volatility_analysis.get(
+        "volatility_percent",
+        0.0
+    )
 
     scores = {
         "TREND_FOLLOWING": 0.0,
@@ -16,20 +24,46 @@ def score_strategies(
         "MEAN_REVERSION": 0.0
     }
 
+    # ---------------------------------------------------------
+    # TREND FOLLOWING
+    # ---------------------------------------------------------
+
     if regime == "BULL_TREND":
         scores["TREND_FOLLOWING"] = confidence
 
     elif regime == "BEAR_TREND":
         scores["TREND_FOLLOWING"] = confidence
 
+    # ---------------------------------------------------------
+    # HIGH VOLATILITY / BREAKOUT
+    # ---------------------------------------------------------
+
     elif regime == "HIGH_VOLATILITY":
 
-        # Higher volatility = stronger breakout suitability
-        if volatility >= 10:
-            breakout_score = min(volatility / 20, 1.0)
-            scores["BREAKOUT"] = breakout_score
+        if volatility_percent <= LOW_VOLATILITY_PERCENT:
+
+            breakout_score = 0.0
+
+        elif volatility_percent >= HIGH_VOLATILITY_PERCENT:
+
+            breakout_score = 1.0
+
+        else:
+
+            breakout_score = (
+                (volatility_percent - LOW_VOLATILITY_PERCENT)
+                /
+                (HIGH_VOLATILITY_PERCENT - LOW_VOLATILITY_PERCENT)
+            )
+
+        scores["BREAKOUT"] = breakout_score
+
+    # ---------------------------------------------------------
+    # RANGE / MEAN REVERSION
+    # ---------------------------------------------------------
 
     elif regime == "RANGE":
+
         scores["MEAN_REVERSION"] = 1.0 - confidence
 
     return scores
