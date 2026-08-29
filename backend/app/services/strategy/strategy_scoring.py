@@ -1,3 +1,5 @@
+from services.analysis.breakout_analysis import analyze_breakout
+
 MIN_STRATEGY_SCORE = 0.5
 
 # Volatility percentage ranges
@@ -7,7 +9,8 @@ HIGH_VOLATILITY_PERCENT = 1.00
 
 def score_strategies(
     regime_analysis: dict,
-    volatility_analysis: dict
+    volatility_analysis: dict,
+    breakout_analysis: dict | None = None
 ) -> dict:
 
     regime = regime_analysis.get("regime", "UNKNOWN")
@@ -40,23 +43,53 @@ def score_strategies(
 
     elif regime == "HIGH_VOLATILITY":
 
-        if volatility_percent <= LOW_VOLATILITY_PERCENT:
+        if breakout_analysis is None:
+         breakout_analysis = {}
 
-            breakout_score = 0.0
+        volatility_score = 0.0
+
+        if volatility_percent <= LOW_VOLATILITY_PERCENT:
+            volatility_score = 0.0
 
         elif volatility_percent >= HIGH_VOLATILITY_PERCENT:
-
-            breakout_score = 1.0
+            volatility_score = 1.0
 
         else:
-
-            breakout_score = (
+            volatility_score = (
                 (volatility_percent - LOW_VOLATILITY_PERCENT)
                 /
                 (HIGH_VOLATILITY_PERCENT - LOW_VOLATILITY_PERCENT)
             )
 
-        scores["BREAKOUT"] = breakout_score
+        structure_score = breakout_analysis.get(
+            "score",
+            0.0
+        )
+
+        breakout_direction = breakout_analysis.get(
+         "breakout",
+            "NONE"
+        )
+
+        # ---------------------------------------------------------
+        # BREAKOUT REQUIRES PRICE-STRUCTURE EVIDENCE
+    #  ---------------------------------------------------------
+
+        if breakout_direction in ("BULLISH", "BEARISH"):
+
+            scores["BREAKOUT"] = round(
+                (volatility_score * 0.4)
+                +
+                (structure_score * 0.6),
+                4
+            )
+
+        else:
+
+            scores["BREAKOUT"] = round(
+                structure_score * 0.6,
+                4
+            )
 
     # ---------------------------------------------------------
     # RANGE / MEAN REVERSION

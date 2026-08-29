@@ -1,3 +1,4 @@
+from services.analysis.breakout_analysis import analyze_breakout
 from models.candle import Candle
 from models.market_analysis import MarketAnalysis
 from models.account import AccountConfig
@@ -25,10 +26,13 @@ def analyze_market(candles: list[Candle],account: AccountConfig) -> MarketAnalys
     volatility_analysis = calculate_volatility(candles)
 
     statistics = calculate_return_statistics(candles)
+    
+    breakout_analysis = analyze_breakout(candles)
 
     strategy_scores = score_strategies(
         regime,
-        volatility_analysis
+        volatility_analysis,
+        breakout_analysis
     )
 
     strategy_decision = make_strategy_decision(
