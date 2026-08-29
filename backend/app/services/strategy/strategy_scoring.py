@@ -27,16 +27,41 @@ def score_strategies(
         "MEAN_REVERSION": 0.0
     }
 
-    # ---------------------------------------------------------
-    # TREND FOLLOWING
-    # ---------------------------------------------------------
+# ---------------------------------------------------------
+# TREND FOLLOWING
+# ---------------------------------------------------------
 
-    if regime == "BULL_TREND":
-        scores["TREND_FOLLOWING"] = confidence
+    if regime in ("BULL_TREND", "BEAR_TREND"):
 
-    elif regime == "BEAR_TREND":
-        scores["TREND_FOLLOWING"] = confidence
+        trend_strength = regime_analysis.get(
+            "trend_strength",
+            confidence
+        )
 
+        price_change_percent = abs(
+            regime_analysis.get(
+                "price_change_percent",
+                0.0 
+            )
+        )
+    
+
+    # Normalize price movement.
+        price_score = min(
+            price_change_percent / 1.0,
+            1.0
+        )
+
+        trend_score = (
+            confidence * 0.40
+            + trend_strength * 0.40
+            + price_score * 0.20
+        )
+
+        scores["TREND_FOLLOWING"] = round(
+            trend_score,
+            4   
+        )
     # ---------------------------------------------------------
     # HIGH VOLATILITY / BREAKOUT
     # ---------------------------------------------------------

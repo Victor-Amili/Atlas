@@ -1,5 +1,4 @@
 MIN_STRATEGY_SCORE = 0.5
-MIN_AVERAGE_RETURN = 0.01
 MIN_BREAKOUT_VOLATILITY = 10
 MAX_MEAN_REVERSION_RETURN = 0.01
 MIN_CANDLES_FOR_STRATEGY = 5
@@ -58,19 +57,6 @@ def make_strategy_decision(
         }
 
     if best_strategy == "TREND_FOLLOWING":
-
-        if average_return < MIN_AVERAGE_RETURN:
-            return {
-                "strategy": "NO_STRATEGY",
-                "score": best_score,
-                "confidence": confidence,
-                "reason": "Average return is too weak for trend following",
-                "conditions": {
-                    "minimum_score": True,
-                    "sufficient_data": candle_count >= MIN_CANDLES_FOR_STRATEGY,
-                    "average_return_valid": False
-                }
-            }
 
         return {
             "strategy": best_strategy,
