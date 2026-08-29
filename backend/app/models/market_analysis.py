@@ -14,3 +14,4 @@ class MarketAnalysis(BaseModel):
     risk: dict
     position_size: dict
     trade_decision: dict
+    breakout: dict

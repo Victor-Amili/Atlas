@@ -2,7 +2,7 @@ def make_trade_decision(
     strategy_decision: dict,
     trade_signal: dict,
     risk: dict,
-    position_size: dict
+    position_size: dict,
 ) -> dict:
 
     strategy = strategy_decision.get("strategy", "NO_STRATEGY")
