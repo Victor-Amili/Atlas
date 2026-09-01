@@ -57,7 +57,7 @@ def generate_trade_signal(
 
     if strategy == "TREND_FOLLOWING":
 
-        if confidence < MIN_SIGNAL_CONFIDENCE:
+        if confidence + 1e-9 < MIN_SIGNAL_CONFIDENCE:
             return {
                 "action": "HOLD",
                 "direction": "NONE",
@@ -65,9 +65,9 @@ def generate_trade_signal(
                 "latest_return": latest_return,
                 "entry_confirmed": False,
                 "reason": (
-                    f"Trend signal confidence {confidence:.2f} "
+                    f"Trend signal confidence {confidence:.4f} "
                     f"is below minimum required confidence "
-                    f"{MIN_SIGNAL_CONFIDENCE:.2f}"
+                    f"{MIN_SIGNAL_CONFIDENCE:.4f}"
                 )
             }
 
@@ -258,13 +258,18 @@ def generate_trade_signal(
             body_confirmed = (
                 body_ratio >= MIN_BODY_PERCENT
             )
+            
+            effective_confidence = min(
+                confidence,
+              breakout_confidence
+            )
 
             distance_confirmed = (
                 bullish_breakout_percent
                 >= MIN_BREAKOUT_PERCENT
             )
 
-            if body_confirmed and distance_confirmed:
+            if body_confirmed and distance_confirmed and effective_confidence >= MIN_SIGNAL_CONFIDENCE:
 
                 return {
                     "action": "BUY",
@@ -334,13 +339,18 @@ def generate_trade_signal(
             body_confirmed = (
                 body_ratio >= MIN_BODY_PERCENT
             )
+            
+            effective_confidence = min(
+                confidence,
+                breakout_confidence
+            )
 
             distance_confirmed = (
                 bearish_breakout_percent
                 >= MIN_BREAKOUT_PERCENT
             )
 
-            if body_confirmed and distance_confirmed:
+            if body_confirmed and distance_confirmed and effective_confidence >= MIN_SIGNAL_CONFIDENCE:
 
                 return {
                     "action": "SELL",
