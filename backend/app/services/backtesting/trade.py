@@ -1,9 +1,9 @@
-from datetime import datetime
-
 from pydantic import BaseModel
+from datetime import datetime
 
 
 class BacktestTrade(BaseModel):
+
     entry_time: datetime
     exit_time: datetime | None = None
 
@@ -24,3 +24,17 @@ class BacktestTrade(BaseModel):
     profit_loss: float = 0.0
 
     result: str = "OPEN"
+
+    # -----------------------------
+    # NEW METADATA
+    # -----------------------------
+
+    regime: str | None = None
+
+    strategy_score: float | None = None
+
+    confidence: float | None = None
+
+    duration_candles: int = 0
+
+    exit_reason: str | None = None

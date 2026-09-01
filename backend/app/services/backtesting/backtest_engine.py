@@ -1,9 +1,17 @@
-
 from models.candle import Candle
 from models.account import AccountConfig
+
 from services.analysis.market_analysis import analyze_market
 from services.backtesting.trade import BacktestTrade
 from services.backtesting.backtest_result import BacktestResult
+
+
+# ---------------------------------------------------------
+# BACKTEST SETTINGS
+# ---------------------------------------------------------
+
+TRADE_COOLDOWN = 3          # Candles to wait after an exit
+MAX_HOLDING_CANDLES = 24    # Maximum holding period
 
 
 def run_backtest(
@@ -17,14 +25,21 @@ def run_backtest(
     # ---------------------------------------------------------
 
     if initial_balance <= 0:
-        raise ValueError("Initial balance must be greater than zero")
+        raise ValueError(
+            "Initial balance must be greater than zero"
+        )
 
     if len(candles) <= warmup_period + 1:
         raise ValueError(
             f"At least {warmup_period + 2} candles are required"
         )
 
+    # ---------------------------------------------------------
+    # INITIAL STATE
+    # ---------------------------------------------------------
+
     balance = initial_balance
+
     trades: list[BacktestTrade] = []
 
     account = AccountConfig(
@@ -32,16 +47,17 @@ def run_backtest(
         risk_percent=0.01
     )
 
+    # First candle where trading is allowed
+    i = warmup_period
+
     # ---------------------------------------------------------
     # MAIN BACKTEST LOOP
     # ---------------------------------------------------------
 
-    i = warmup_period
-
     while i < len(candles) - 1:
 
         # -----------------------------------------------------
-        # ANALYSIS USES ONLY INFORMATION AVAILABLE AT i
+        # ANALYZE MARKET
         # -----------------------------------------------------
 
         historical_candles = candles[:i + 1]
@@ -53,22 +69,24 @@ def run_backtest(
 
         decision = analysis.trade_decision
 
+        # -----------------------------------------------------
+        # NO ENTRY
+        # -----------------------------------------------------
+
         if decision.get("decision") != "ENTER":
             i += 1
             continue
 
         # -----------------------------------------------------
-        # TRADE PARAMETERS
+        # GET TRADE PARAMETERS
         # -----------------------------------------------------
 
-        signal_entry_price = decision.get("entry_price")
         stop_loss = decision.get("stop_loss")
         take_profit = decision.get("take_profit")
         position_size = decision.get("position_size")
 
         if (
-            signal_entry_price is None
-            or stop_loss is None
+            stop_loss is None
             or take_profit is None
             or position_size is None
         ):
@@ -84,14 +102,17 @@ def run_backtest(
         # -----------------------------------------------------
         # EXECUTION
         #
-        # The signal is generated using candle i.
-        # The earliest executable candle is i + 1.
+        # Signal is generated using candle i.
+        # Trade executes at the OPEN of candle i + 1.
         # -----------------------------------------------------
 
         entry_index = i + 1
+
+        if entry_index >= len(candles):
+            break
+
         entry_candle = candles[entry_index]
 
-        # Use the next candle OPEN as the executable entry.
         entry_price = entry_candle.open
 
         # -----------------------------------------------------
@@ -100,7 +121,10 @@ def run_backtest(
 
         trade = BacktestTrade(
             entry_time=entry_candle.timestamp,
-            strategy=decision.get("strategy", "UNKNOWN"),
+            strategy=decision.get(
+                "strategy",
+                "UNKNOWN"
+            ),
             direction=direction,
             entry_price=entry_price,
             stop_loss=stop_loss,
@@ -110,20 +134,23 @@ def run_backtest(
             reward=decision.get("reward", 0.0)
         )
 
-        exit_found = False
-
         # -----------------------------------------------------
         # SEARCH FOR EXIT
         # -----------------------------------------------------
 
+        exit_found = False
+
         j = entry_index
+        holding_candles = 0
 
         while j < len(candles):
 
             candle = candles[j]
 
+            holding_candles += 1
+
             # -------------------------------------------------
-            # LONG
+            # LONG POSITION
             # -------------------------------------------------
 
             if direction == "LONG":
@@ -132,30 +159,50 @@ def run_backtest(
                 target_hit = candle.high >= take_profit
 
                 # Conservative assumption:
-                # if both are touched in the same candle,
-                # assume SL happened first.
+                # If SL and TP are both touched in the same
+                # candle, assume SL happened first.
+
                 if stop_hit and target_hit:
+
                     exit_price = stop_loss
                     result = "LOSS"
 
                 elif stop_hit:
+
                     exit_price = stop_loss
                     result = "LOSS"
 
                 elif target_hit:
+
                     exit_price = take_profit
                     result = "WIN"
 
                 else:
-                    j += 1
-                    continue
+
+                    # No exit yet.
+                    #
+                    # IMPORTANT:
+                    # Move j forward so we do not create
+                    # an infinite loop.
+
+                    if holding_candles >= MAX_HOLDING_CANDLES:
+
+                        exit_price = candle.close
+                        result = "TIME_EXIT"
+
+                    else:
+
+                        j += 1
+                        continue
+
+                # Calculate LONG P/L
 
                 profit_loss = (
                     exit_price - entry_price
                 ) * position_size
 
             # -------------------------------------------------
-            # SHORT
+            # SHORT POSITION
             # -------------------------------------------------
 
             else:
@@ -164,23 +211,43 @@ def run_backtest(
                 target_hit = candle.low <= take_profit
 
                 # Conservative assumption:
-                # if both are touched in the same candle,
-                # assume SL happened first.
+                # If SL and TP are both touched in the same
+                # candle, assume SL happened first.
+
                 if stop_hit and target_hit:
+
                     exit_price = stop_loss
                     result = "LOSS"
 
                 elif stop_hit:
+
                     exit_price = stop_loss
                     result = "LOSS"
 
                 elif target_hit:
+
                     exit_price = take_profit
                     result = "WIN"
 
                 else:
-                    j += 1
-                    continue
+
+                    # No exit yet.
+                    #
+                    # IMPORTANT:
+                    # Move j forward so we do not create
+                    # an infinite loop.
+
+                    if holding_candles >= MAX_HOLDING_CANDLES:
+
+                        exit_price = candle.close
+                        result = "TIME_EXIT"
+
+                    else:
+
+                        j += 1
+                        continue
+
+                # Calculate SHORT P/L
 
                 profit_loss = (
                     entry_price - exit_price
@@ -204,10 +271,9 @@ def run_backtest(
             break
 
         # -----------------------------------------------------
-        # TIME EXIT
+        # DATASET ENDED BEFORE EXIT
         #
-        # If neither SL nor TP was reached before the dataset
-        # ended, close the position at the final candle close.
+        # Close the remaining trade at the final candle close.
         # -----------------------------------------------------
 
         if not exit_found:
@@ -217,11 +283,13 @@ def run_backtest(
             exit_price = final_candle.close
 
             if direction == "LONG":
+
                 profit_loss = (
                     exit_price - entry_price
                 ) * position_size
 
             else:
+
                 profit_loss = (
                     entry_price - exit_price
                 ) * position_size
@@ -235,6 +303,9 @@ def run_backtest(
 
             trades.append(trade)
 
+            exit_found = True
+
+            # Dataset is finished.
             break
 
         # -----------------------------------------------------
@@ -247,12 +318,16 @@ def run_backtest(
         )
 
         # -----------------------------------------------------
-        # MOVE PAST THE EXIT CANDLE
+        # MOVE PAST EXIT + COOLDOWN
         #
-        # Prevent overlapping trades.
+        # Example:
+        # Exit at candle 100
+        # Cooldown = 3
+        #
+        # Next analysis starts at candle 104.
         # -----------------------------------------------------
 
-        i = j + 1
+        i = j + 1 + TRADE_COOLDOWN
 
     # ---------------------------------------------------------
     # PERFORMANCE CALCULATIONS
@@ -285,7 +360,7 @@ def run_backtest(
     )
 
     # ---------------------------------------------------------
-    # RESULT
+    # RETURN RESULT
     # ---------------------------------------------------------
 
     return BacktestResult(

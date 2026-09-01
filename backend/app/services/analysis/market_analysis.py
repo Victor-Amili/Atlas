@@ -32,7 +32,8 @@ def analyze_market(candles: list[Candle],account: AccountConfig) -> MarketAnalys
     strategy_scores = score_strategies(
         regime,
         volatility_analysis,
-        breakout_analysis
+        breakout_analysis,
+        trend_analysis
     )
 
     strategy_decision = make_strategy_decision(

@@ -1,4 +1,5 @@
 import math
+from unittest import result
 
 from services.backtesting.backtest_result import BacktestResult
 
@@ -236,6 +237,24 @@ def analyze_performance(
         if losses
         else 0.0
     )
+    
+    time_exit_trades = sum(
+        1
+        for trade in result.trades
+        if trade.result == "TIME_EXIT"
+    )
+
+    long_trades = sum(
+        1
+        for trade in result.trades
+        if trade.direction == "LONG"
+    )
+
+    short_trades = sum(
+        1
+        for trade in result.trades
+        if trade.direction == "SHORT"
+    )
 
     equity_curve = calculate_equity_curve(result)
 
@@ -248,6 +267,37 @@ def analyze_performance(
     sortino_ratio = calculate_sortino_ratio(
         equity_curve
     )
+    
+    strategy_stats = {}
+
+    for trade in result.trades:
+
+        name = trade.strategy
+
+        if name not in strategy_stats:
+            strategy_stats[name] = {
+                "trades": 0,
+                "wins": 0,
+                "profit": 0.0
+            }
+
+        strategy_stats[name]["trades"] += 1
+        strategy_stats[name]["profit"] += trade.profit_loss
+
+        if trade.result == "WIN":
+            strategy_stats[name]["wins"] += 1
+
+    for name in strategy_stats:
+
+        s = strategy_stats[name]
+
+        s["win_rate"] = (
+            s["wins"] / s["trades"]
+            if s["trades"]
+            else 0
+        )
+    
+
 
     return {
         "total_trades": total_trades,
@@ -263,6 +313,9 @@ def analyze_performance(
         "largest_win": largest_win,
         "largest_loss": largest_loss,
         "equity_curve": equity_curve,
+        "time_exit_trades": time_exit_trades,
+        "long_trades": long_trades,
+        "short_trades": short_trades,
         "maximum_drawdown": drawdown[
             "maximum_drawdown"
         ],
@@ -271,4 +324,5 @@ def analyze_performance(
         ],
         "sharpe_ratio": sharpe_ratio,
         "sortino_ratio": sortino_ratio,
+        "strategy_statistics": strategy_stats,
     }

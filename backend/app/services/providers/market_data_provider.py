@@ -65,7 +65,7 @@ def get_market_data(
         response = httpx.get(
             BITGET_URL,
             params=params,
-            timeout=15.0
+            timeout=30.0
         )
 
         response.raise_for_status()
