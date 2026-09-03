@@ -6,7 +6,8 @@ MIN_RISK_REWARD_RATIO = 2.0
 
 def calculate_risk(
     trade_signal: dict,
-    candles: list[Candle]
+    candles: list[Candle],
+    entry_price: float | None = None
 ) -> dict:
 
     if len(candles) < 2:
@@ -25,7 +26,18 @@ def calculate_risk(
 
     latest_candle = candles[-1]
 
-    entry_price = latest_candle.close
+    # In normal analysis, the signal candle close is the
+    # executable reference price. Backtesting can provide the
+    # next candle open explicitly so risk is calculated from
+    # the actual simulated execution price.
+    if entry_price is None:
+        entry_price = latest_candle.close
+
+    if entry_price <= 0:
+        return {
+            "valid": False,
+            "reason": "Invalid entry price"
+        }
 
     if action == "BUY":
 

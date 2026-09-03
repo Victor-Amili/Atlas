@@ -4,6 +4,8 @@ from models.account import AccountConfig
 from services.analysis.market_analysis import analyze_market
 from services.backtesting.trade import BacktestTrade
 from services.backtesting.backtest_result import BacktestResult
+from services.risk.risk_management import calculate_risk
+from services.risk.position_sizing import calculate_position_size
 
 
 # ---------------------------------------------------------
@@ -78,12 +80,54 @@ def run_backtest(
             continue
 
         # -------------------------------------------------
-        # TRADE PARAMETERS
+        # EXECUTION
+        #
+        # Signal is generated on candle i.
+        # Trade executes on candle i + 1 OPEN.
+        #
+        # IMPORTANT:
+        # Risk and position size must be recalculated from
+        # the actual simulated execution price. Using the
+        # signal candle close here creates a look/price mismatch
+        # between risk calculation and trade execution.
         # -------------------------------------------------
 
-        stop_loss = decision.get("stop_loss")
-        take_profit = decision.get("take_profit")
-        position_size = decision.get("position_size")
+        entry_index = i + 1
+
+        if entry_index >= len(candles):
+            break
+
+        entry_candle = candles[entry_index]
+
+        entry_price = entry_candle.open
+
+        # -------------------------------------------------
+        # ENTRY-AWARE RISK
+        # -------------------------------------------------
+
+        risk = calculate_risk(
+            trade_signal=analysis.trade_signal,
+            candles=historical_candles,
+            entry_price=entry_price
+        )
+
+        if not risk.get("valid", False):
+            i += 1
+            continue
+
+        position = calculate_position_size(
+            account_balance=balance,
+            risk_percent=account.risk_percent,
+            risk_analysis=risk
+        )
+
+        if not position.get("valid", False):
+            i += 1
+            continue
+
+        stop_loss = risk.get("stop_loss")
+        take_profit = risk.get("take_profit")
+        position_size = position.get("position_size")
 
         if (
             stop_loss is None
@@ -99,22 +143,6 @@ def run_backtest(
         if direction not in ("LONG", "SHORT"):
             i += 1
             continue
-
-        # -------------------------------------------------
-        # EXECUTION
-        #
-        # Signal generated on candle i.
-        # Trade executes on candle i + 1 OPEN.
-        # -------------------------------------------------
-
-        entry_index = i + 1
-
-        if entry_index >= len(candles):
-            break
-
-        entry_candle = candles[entry_index]
-
-        entry_price = entry_candle.open
 
         # -------------------------------------------------
         # CREATE TRADE
